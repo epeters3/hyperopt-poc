@@ -9,13 +9,13 @@ from poc.learning_utils import load_train_test_split, Hyperparam
 class DecisionTree(OptimizableEstimator):
     def __init__(self) -> None:
         super().__init__(
-            DecisionTreeClassifier,
+            DecisionTreeClassifier(random_state=0),
             [
-                Hyperparam("min_samples_split"),
-                Hyperparam("min_samples_leaf"),
-                Hyperparam("min_weight_fraction_leaf"),
-                Hyperparam("min_impurity_decrease"),
-                Hyperparam("ccp_alpha"),
+                Hyperparam("min_samples_split", is_int=True, scale=100, lbound=1),
+                Hyperparam("min_samples_leaf", is_int=True, scale=100, lbound=1),
+                Hyperparam("min_weight_fraction_leaf", lbound=0.0, ubound=1.0),
+                Hyperparam("min_impurity_decrease", lbound=0.0, ubound=1.0),
+                Hyperparam("ccp_alpha", lbound=0.0),
             ],
         )
         train, test = load_train_test_split("iris")
@@ -28,8 +28,6 @@ class DecisionTree(OptimizableEstimator):
         self.index2hyperparam = {
             i: name for i, name in enumerate(self.optimizable_params)
         }
-
-        self.clf = DecisionTreeClassifier()
 
     def compute_objective(self, x: np.ndarray) -> float:
         pass

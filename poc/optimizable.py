@@ -41,10 +41,8 @@ class Optimizable(ABC):
 
 
 class OptimizableEstimator(Optimizable):
-    def __init__(
-        self, clf_cls: t.Type, optimizable_params: t.Sequence[Hyperparam]
-    ) -> None:
-        self.clf = clf_cls
+    def __init__(self, clf, optimizable_params: t.Sequence[Hyperparam]) -> None:
+        self.clf = clf
         self.optimizable_params = optimizable_params
 
     def get_x0(self) -> np.ndarray:
