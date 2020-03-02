@@ -126,15 +126,15 @@ class Optimizable(ABC):
         """
         raise NotImplementedError
 
-    # @abstractmethod
-    # def get_constraints(self) -> t.Sequence[dict]:
-    #     """
-    #     Should return the values to pass to the `constraints`
-    #     argument of `scipy.optimize.minimize`
-    #     (see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html)
-    #     """
-    #     # TODO: Make Sub-classes implement this.
-    #     raise NotImplementedError
+    @abstractmethod
+    def get_constraints(self) -> t.Sequence[dict]:
+        """
+        Should return the values to pass to the `constraints`
+        argument of `scipy.optimize.minimize`
+        (see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html)
+        """
+        # TODO: Make Sub-classes implement this.
+        raise NotImplementedError
 
 
 class OptimizableEstimator(Optimizable):
@@ -218,6 +218,11 @@ class OptimizableEstimator(Optimizable):
         # can work with a problem that's not ill-conditioned.
         return self.score_behavior.to_optim(score)
 
+    def get_constraints(self) -> t.Sequence[dict]:
+        # kind of a contrived way to do constraints. Just
+        # enforces the bounds as constraints.
+        # TODO
+        raise NotImplementedError
 
     def optimize_hyperparams(
         self, dataset_name: str, **optimizerargs
