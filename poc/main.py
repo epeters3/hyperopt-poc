@@ -1,15 +1,17 @@
 from poc.optimizable_estimators import (
-    RidgeRegressor,
-    DecisionTreeClassifier,
-    ElasticNetRegressor,
-    RandomForestRegressor,
+    ridge_reg,
+    decision_tree_clf,
+    elasticnet_reg,
+    rf_reg,
+    huber_reg,
+    sv_reg,
 )
 
 if __name__ == "__main__":
-    regressor = ElasticNetRegressor()
-    cb = lambda xk: print(regressor.compute_objective(xk))
-    result = regressor.optimize_hyperparams(tol=1e-8, callback=cb)
-
-    # classifier = DecisionTreeClassifier()
-    # cb = lambda xk: print(classifier.compute_objective(xk))
-    # result = classifier.optimize_hyperparams(tol=1e-8, callback=cb)
+    result = elasticnet_reg.optimize_hyperparams(
+        "boston",
+        tol=1e-8,
+        callback=lambda xk: print(
+            "raw objective:", elasticnet_reg.compute_objective(xk)
+        ),
+    )

@@ -63,7 +63,7 @@ class Hyperparam(OptimizerValue):
         An optional upper bound for this hyperparameter. The value
         should be expressed in the parameter's original scale.
     scale:
-        The number to scale `sklearn`'s value of this
+        The number to scale (divide) `sklearn`'s value of this
         hyperparameter by to ensure that the optimizer's
         representation of this hyperparameter is approximately
         in the range `[0,1]`.
@@ -143,7 +143,6 @@ class OptimizableEstimator(Optimizable):
         est: BaseEstimator,
         *,
         optimizable_hyperparams: t.Sequence[Hyperparam],
-        dataset_name: str,
         score_func: t.Callable[[np.ndarray, np.ndarray], float],
         score_behavior: OptimizerValue,
     ) -> None:
@@ -155,8 +154,6 @@ class OptimizableEstimator(Optimizable):
         optimizable_hyperparams:
             The list of hyper parameter objects representing the
             hyperparameters this estimator can be optimized with.
-        dataset_name:
-            The name of the dataset to optimize this estimator on.
         score_func:
             Should be of the form `score = score_func(y_true, y_pred)`.
         score_behavior:
@@ -175,11 +172,6 @@ class OptimizableEstimator(Optimizable):
         self.hyperparamindex = {
             hp.name: i for i, hp in enumerate(self.optimizable_hyperparams)
         }
-
-        self.dataset_name = dataset_name
-        train_data, val_data = load_train_test_split(self.dataset_name)
-        self.train_data = train_data
-        self.val_data = val_data
 
     def get_x0(self) -> np.ndarray:
         """
@@ -226,11 +218,19 @@ class OptimizableEstimator(Optimizable):
         # can work with a problem that's not ill-conditioned.
         return self.score_behavior.to_optim(score)
 
-    def optimize_hyperparams(self, **optimizerargs) -> OptimizeResult:
+
+    def optimize_hyperparams(
+        self, dataset_name: str, **optimizerargs
+    ) -> OptimizeResult:
         """
-        Performs hyperparameter optimization on `problem`. Passes
+        Performs hyperparameter optimization on `dataset_name`. Passes
         `optimizerargs` on to the optimizer.
         """
+        self.dataset_name = dataset_name
+        train_data, val_data = load_train_test_split(self.dataset_name)
+        self.train_data = train_data
+        self.val_data = val_data
+
         result = minimize(
             fun=self.compute_objective,
             x0=self.get_x0(),
