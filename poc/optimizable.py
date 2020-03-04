@@ -3,9 +3,11 @@ import typing as t
 
 import numpy as np
 from sklearn.base import BaseEstimator
-from scipy.optimize import minimize, OptimizeResult
+from scipy.optimize import OptimizeResult, NonlinearConstraint
+from scipy.sparse import issparse
 
 from poc.learning_utils import load_train_test_split
+from poc.minimize import minimize
 
 
 class OptimizerValue:
@@ -83,15 +85,6 @@ class Hyperparam(OptimizerValue):
         self.lbound = lbound
         self.ubound = ubound
 
-    # @abstractmethodz
-    # def get_constraints(self) -> t.List[dict]:
-    #     """
-    #     Returns the constraints this hyperparameter
-    #     requires when being optimized by `scipy.optimize.minimize`.
-    #     """
-    #     # TODO
-    #     raise NotImplementedError
-
 
 class Optimizable(ABC):
     """
@@ -126,16 +119,6 @@ class Optimizable(ABC):
         """
         raise NotImplementedError
 
-    @abstractmethod
-    def get_constraints(self) -> t.Sequence[dict]:
-        """
-        Should return the values to pass to the `constraints`
-        argument of `scipy.optimize.minimize`
-        (see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html)
-        """
-        # TODO: Make Sub-classes implement this.
-        raise NotImplementedError
-
 
 class OptimizableEstimator(Optimizable):
     def __init__(
@@ -143,6 +126,7 @@ class OptimizableEstimator(Optimizable):
         est: BaseEstimator,
         *,
         optimizable_hyperparams: t.Sequence[Hyperparam],
+        constraints: t.Sequence[dict] = (),
         score_func: t.Callable[[np.ndarray, np.ndarray], float],
         score_behavior: OptimizerValue,
     ) -> None:
@@ -154,6 +138,10 @@ class OptimizableEstimator(Optimizable):
         optimizable_hyperparams:
             The list of hyper parameter objects representing the
             hyperparameters this estimator can be optimized with.
+        constraints:
+            Any constraints that need to be enforced on the hyperparams
+            when optimizing the estimator. Should be of the same format
+            as `scipy.optimize.minimize(method="COBYLA")` or `method="SLSQP"`.
         score_func:
             Should be of the form `score = score_func(y_true, y_pred)`.
         score_behavior:
@@ -167,6 +155,7 @@ class OptimizableEstimator(Optimizable):
         self.optimizable_hyperparams = optimizable_hyperparams
         self.score_func = score_func
         self.score_behavior = score_behavior
+        self.constraints = constraints
 
         # be able to get hyperparam by name
         self.hyperparamindex = {
@@ -218,28 +207,34 @@ class OptimizableEstimator(Optimizable):
         # can work with a problem that's not ill-conditioned.
         return self.score_behavior.to_optim(score)
 
-    def get_constraints(self) -> t.Sequence[dict]:
-        # kind of a contrived way to do constraints. Just
-        # enforces the bounds as constraints.
-        # TODO
-        raise NotImplementedError
+    def get_constraints_as_bounds(self) -> t.Sequence[dict]:
+        # Enforces the bounds as constraints.
+        # constraints are of the form `g(x) >= 0`.
+        constraints = []
+        for i, (lbound, ubound) in enumerate(self.get_bounds()):
+            if lbound is not None:
+                constraints.append({"type": "ineq", "fun": lambda x: x[i] - lbound})
+            if ubound is not None:
+                constraints.append({"type": "ineq", "fun": lambda x: ubound - x[i]})
 
-    def optimize_hyperparams(
-        self, dataset_name: str, **optimizerargs
-    ) -> OptimizeResult:
-        """
-        Performs hyperparameter optimization on `dataset_name`. Passes
-        `optimizerargs` on to the optimizer.
-        """
+        return constraints
+
+    def set_dataset(self, dataset_name: str):
         self.dataset_name = dataset_name
         train_data, val_data = load_train_test_split(self.dataset_name)
         self.train_data = train_data
         self.val_data = val_data
 
+    def optimize_hyperparams(self, **optimizerargs) -> OptimizeResult:
+        """
+        Performs hyperparameter optimization on the currently set
+        dataset. Passes `optimizerargs` on to the optimizer.
+        """
         result = minimize(
             fun=self.compute_objective,
             x0=self.get_x0(),
             bounds=self.get_bounds(),
+            constraints=self.constraints,
             **optimizerargs,
         )
         # We need to de-scale the resulting x vector and

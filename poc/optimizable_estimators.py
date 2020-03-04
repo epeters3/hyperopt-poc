@@ -42,12 +42,14 @@ ridge_reg = OptimizableEstimator(
 
 
 elasticnet_reg = OptimizableEstimator(
-    ElasticNet(random_state=0, max_iter=1e6),
+    ElasticNet(random_state=0, max_iter=1e7),
     optimizable_hyperparams=[
         Hyperparam("alpha", lbound=(0.0 + 1e-10)),
         Hyperparam("l1_ratio", lbound=0.01, ubound=1.0),
     ],
     score_func=rmse,
+    # TODO: Add 2 or more artificial constraints for
+    # the sake of the homework.
     score_behavior=OptimizerValue(scale=100),
 )
 
