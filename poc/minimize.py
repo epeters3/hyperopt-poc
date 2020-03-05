@@ -10,46 +10,47 @@ def minimize(
 ) -> OptimizeResult:
     """
     Wraps `scipy.optimize.minimize` to include custom
-    interior penalty method.
+    exterior penalty method.
     """
-    if method == "interior-penalty":
-        return interior_penalty(fun, x0, **scipyargs)
+    if method == "exterior-penalty":
+        return exterior_penalty(fun, x0, **scipyargs)
     else:
         return sp.optimize.minimize(fun, x0, method=method, **scipyargs)
 
 
-def interior_penalty(
+def exterior_penalty(
     fun: t.Callable,
     x0: np.ndarray,
     constraints: t.Sequence[dict] = (),
-    min_mu: float = 1e-6,
+    start_mu: float = 1,
+    max_mu: float = 1e10,
     **scipyargs
 ) -> OptimizeResult:
     """
-    A basic constrained optimizer that uses an interior penalty method to
+    A basic constrained optimizer that uses an exterior penalty method to
     enforce the constraints. `fun`, `x0`, and `constraints` should all have the same
-    types as `scipy.optimize.minimize(method="SLSQP")`. `min_mu` is the smallest value
-    of the penalty parameter to go down to. Smaller increases the accuracy of the
+    types as `scipy.optimize.minimize(method="SLSQP")`. `max_mu` is the largest value
+    of the penalty parameter to go up to. Larger values increase the accuracy of the
     solution but takes longer. One optimization will be performed for each fractional
-    magnitude in `min_mu`. It is assumed that all constraints in `constraints` are
+    magnitude in `max_mu`. It is assumed that all constraints in `constraints` are
     inequality constraints, of the form `h(x) >= 0`.
     """
-    mu = 1.0
+    mu = start_mu
 
     def objective(x):
-        return fun(x) - mu * np.sum(
-            np.array([np.log(c["fun"](x)) for c in constraints])
+        return fun(x) + (mu / 2) * np.sum(
+            np.array([min(0, c["fun"](x)) ** 2 for c in constraints])
         )
 
     fcalls = 0
     niters = 0
-    while mu > min_mu:
+    while mu < max_mu:
         # Optimize the "unconstrained" penalized form of the objective.
-        result = minimize(objective, x0, **scipyargs)
+        result = minimize(objective, x0, method="SLSQP", **scipyargs)
         x0 = result.x
         fcalls += result.nfev
         niters += result.nit
-        mu /= 10
+        mu *= 10
 
     result.nfev = fcalls
     result.nit = niters

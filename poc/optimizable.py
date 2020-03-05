@@ -129,6 +129,7 @@ class OptimizableEstimator(Optimizable):
         constraints: t.Sequence[dict] = (),
         score_func: t.Callable[[np.ndarray, np.ndarray], float],
         score_behavior: OptimizerValue,
+        verbose: bool = False,
     ) -> None:
         """
         Parameters
@@ -156,6 +157,7 @@ class OptimizableEstimator(Optimizable):
         self.score_func = score_func
         self.score_behavior = score_behavior
         self.constraints = constraints
+        self.verbose = verbose
 
         # be able to get hyperparam by name
         self.hyperparamindex = {
@@ -194,7 +196,8 @@ class OptimizableEstimator(Optimizable):
             hp_i.name: x_i
             for x_i, hp_i in zip(x_for_model, self.optimizable_hyperparams)
         }
-        print(x_by_name)
+        if self.verbose:
+            print(x_by_name)
         return x_by_name
 
     def compute_objective(self, x: np.ndarray) -> float:
@@ -206,18 +209,6 @@ class OptimizableEstimator(Optimizable):
         # This is a model score. Scale it so the optimizer
         # can work with a problem that's not ill-conditioned.
         return self.score_behavior.to_optim(score)
-
-    def get_constraints_as_bounds(self) -> t.Sequence[dict]:
-        # Enforces the bounds as constraints.
-        # constraints are of the form `g(x) >= 0`.
-        constraints = []
-        for i, (lbound, ubound) in enumerate(self.get_bounds()):
-            if lbound is not None:
-                constraints.append({"type": "ineq", "fun": lambda x: x[i] - lbound})
-            if ubound is not None:
-                constraints.append({"type": "ineq", "fun": lambda x: ubound - x[i]})
-
-        return constraints
 
     def set_dataset(self, dataset_name: str):
         self.dataset_name = dataset_name
